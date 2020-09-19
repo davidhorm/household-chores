@@ -1,0 +1,81 @@
+name: Close Done Issues
+
+on:
+  project_card:
+    types: [ moved ]
+
+jobs:
+  close-or-reopen-issues:
+    runs-on: ubuntu-latest
+
+    steps:
+    - id: get-project-card-details
+      name: Get Project Card Details
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: octokit/graphql-action@v2.x
+      with:
+        node_id: ${{ github.event.project_card.node_id }}
+        query: |
+          query GetProjectCardDetails($node_id: ID!) {
+            node(id: $node_id) {
+              ... on ProjectCard {
+                column {
+                  name
+                }
+                content {
+                  ... on Issue {
+                    id
+                    state
+                  }
+                }
+              }
+            }
+          }
+
+    - id: set-vars
+      name: Set Variables
+      run: |
+        echo "::set-output name=COLUMN_NAME::${{ fromJSON(steps.get-project-card-details.outputs.data).node.column.name }}"
+        echo "::set-output name=ISSUE_ID::${{ fromJSON(steps.get-project-card-details.outputs.data).node.content.id }}"
+        echo "::set-output name=ISSUE_STATE::${{ fromJSON(steps.get-project-card-details.outputs.data).node.content.state }}"
+    
+    - name: Echo Variables
+      run: |
+        echo "COLUMN_NAME: ${{ steps.set-vars.outputs.COLUMN_NAME }}"
+        echo "ISSUE_ID: ${{ steps.set-vars.outputs.ISSUE_ID }}"
+        echo "ISSUE_STATE: ${{ steps.set-vars.outputs.ISSUE_STATE }}"
+    
+    - id: close-if-done
+      name: Close Issue if Done
+      if: ${{ steps.set-vars.outputs.COLUMN_NAME == 'Done' && steps.set-vars.outputs.ISSUE_STATE == 'OPEN' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: octokit/graphql-action@v2.x
+      with:
+        issue_id: ${{ steps.set-vars.outputs.ISSUE_ID }}
+        query: |
+          mutation CloseIssue($issue_id: ID!) {
+            closeIssue(input: {issueId: $issue_id}) {
+              issue {
+                number
+              }
+            }
+          }
+
+    - id: reopen-if-not-done
+      name: Reopen Issue if not Done
+      if: ${{ steps.set-vars.outputs.COLUMN_NAME != 'Done' && steps.set-vars.outputs.ISSUE_STATE == 'CLOSED' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: octokit/graphql-action@v2.x
+      with:
+        issue_id: ${{ steps.set-vars.outputs.ISSUE_ID }}
+        query: |
+          mutation ReopenIssue($issue_id: ID!) {
+            reopenIssue(input: {issueId: $issue_id}) {
+              issue {
+                number
+              }
+            }
+          }

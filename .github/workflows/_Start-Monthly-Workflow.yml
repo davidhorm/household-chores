@@ -1,0 +1,117 @@
+name: Start Monthly Workflow
+on:
+  # Uncomment `workflow_dispatch` line below to run this workflow manually.
+  workflow_dispatch:
+
+  # Uncomment the `schedule` and `cron` lines below to schedule this workflow to execute monthly.
+  # schedule:
+  # - cron: 1 0 1 * *  # At the first minute of the first day of every month – https://crontab.guru
+
+jobs:
+  get-github-ids:
+    runs-on: ubuntu-latest
+
+    outputs:
+      MILESTONE_ID: ${{ fromJSON(steps.get-ids.outputs.data).repository.milestones.nodes[0].id || fromJSON(steps.create-milestone.outputs.data).node_id }}
+      PROJECT_ID: ${{ fromJSON(steps.get-ids.outputs.data).repository.projects.nodes[0].id }}
+
+    steps:
+
+    - id: wf-vars
+      name: Set workflow variables
+      run: |
+        echo "::set-output name=PROJECT_TITLE::'Chores'"
+        echo "::set-output name=MILESTONE_TITLE::$(date +'%B %Y')"
+        first_of_next_month=$(date --date="$(date +'%Y-%m-01') + 1 month" +%FT%TZ)
+        echo "::set-output name=MILESTONE_DUE_DATE::$first_of_next_month"
+
+    - id: get-ids
+      name: Get ID for- this repo, open Milestone titled "${{ steps.wf-vars.outputs.MILESTONE_TITLE }}", and Project titled ${{ steps.wf-vars.outputs.PROJECT_TITLE }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: octokit/graphql-action@v2.x
+      with:
+        owner: ${{ github.event.repository.owner.login }}
+        repo: ${{ github.event.repository.name }}
+        milestone_title: ${{ steps.wf-vars.outputs.MILESTONE_TITLE }}
+        project_title: ${{ steps.wf-vars.outputs.PROJECT_TITLE }}
+        query: |
+          query GetGithubIds($owner: String!, $repo: String!, $milestone_title: String!, $project_title: String!) {
+            repository(owner: $owner, name: $repo) {
+              milestones(states: OPEN, first: 1, query: $milestone_title) {
+                nodes {
+                  id
+                }
+              }
+              projects(states: OPEN, first: 1, search: $project_title) {
+                nodes {
+                  id
+                }
+              }
+            }
+          }
+
+    - id: create-milestone
+      name: Can't find, so create Milestone titled ${{ steps.wf-vars.outputs.MILESTONE_TITLE }}
+      if: ${{ fromJSON(steps.get-ids.outputs.data).repository.milestones.nodes[0].id == null }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # NOTE: can't create milestones via GraphQL at this time
+      uses: octokit/request-action@v2.x
+      with:
+        route: POST /repos/${{ github.repository }}/milestones
+        title: ${{ steps.wf-vars.outputs.MILESTONE_TITLE }}
+        description: Chores to be completed in ${{ steps.wf-vars.outputs.MILESTONE_TITLE }}
+        due_on: ${{ steps.wf-vars.outputs.MILESTONE_DUE_DATE }}
+
+    # NOTE: currently, can only create org-level projects with GraphQL
+    # - id: create-project
+    #   name: Can't find, so create Project titled ${{ steps.wf-vars.outputs.PROJECT_TITLE }}
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    #   uses: octokit/graphql-action@v2.x
+    #   with:
+    #     project_name: ${{ steps.wf-vars.outputs.PROJECT_TITLE }}
+    #     owner_id: ${{ github.event.repository.owner.node_id }}
+    #     repository_id: ${{ github.event.repository.node_id }}
+    #     project_template: AUTOMATED_KANBAN_V2
+    #     query: |
+    #       mutation CreateProject($project_name: String!, $owner_id: ID!, $repository_id: [ID!], $project_template: ProjectTemplate) {
+    #         createProject(input: {name: $project_name, ownerId: $owner_id, repositoryIds: $repository_id, template: $project_template }) {
+    #           project {
+    #             id
+    #             resourcePath
+    #           }
+    #         }
+    #       }
+
+  dispatch-monthly-workflows:
+    runs-on: ubuntu-latest
+    needs: get-github-ids
+    steps:
+    - id: wf-vars
+      name: Set variables based on date
+      run: |
+        echo "::set-output name=SPECIFIC_MONTH_WORKFLOW::$(date +'%m-%b.yml')"
+
+    - name: Call ${{ steps.wf-vars.outputs.SPECIFIC_MONTH_WORKFLOW }} Workflow
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      uses: octokit/request-action@v2.x
+      with:
+        route: POST /repos/${{ github.repository }}/actions/workflows/${{ steps.wf-vars.outputs.SPECIFIC_MONTH_WORKFLOW }}/dispatches
+        ref: ${{ github.ref }}
+        inputs: |
+          milestone-id: "${{ needs.get-github-ids.outputs.MILESTONE_ID }}"
+          project-id: "${{ needs.get-github-ids.outputs.PROJECT_ID }}"
+    
+    - name: Call 00-Monthly.yml Workflow
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      uses: octokit/request-action@v2.x
+      with:
+        route: POST /repos/${{ github.repository }}/actions/workflows/00-Monthly.yml/dispatches
+        ref: ${{ github.ref }}
+        inputs: |
+          milestone-id: "${{ needs.get-github-ids.outputs.MILESTONE_ID }}"
+          project-id: "${{ needs.get-github-ids.outputs.PROJECT_ID }}"

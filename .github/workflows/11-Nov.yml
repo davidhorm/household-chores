@@ -1,0 +1,20 @@
+name: Create November Chores
+
+on:
+  # Assumes workflow is called via _Start-Monthly-Workflow.yml workflow
+  workflow_dispatch:
+    inputs:
+      milestone-id:
+        required: true
+      project-id:
+        required: true
+
+jobs:
+  print-inputs:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Print Inputs
+      run: |
+        echo "Workflow Input"
+        echo "milestone-id: ${{ github.event.inputs.milestone-id }}"
+        echo "project-id: ${{ github.event.inputs.project-id }}"

@@ -1,0 +1,39 @@
+name: Create September Chores
+
+on:
+  # Assumes workflow is called via _Start-Monthly-Workflow.yml workflow
+  workflow_dispatch:
+    inputs:
+      milestone-id:
+        required: true
+      project-id:
+        required: true
+
+jobs:
+  print-inputs:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Print Inputs
+      run: |
+        echo "Workflow Input"
+        echo "milestone-id: ${{ github.event.inputs.milestone-id }}"
+        echo "project-id: ${{ github.event.inputs.project-id }}"
+
+    - name: Get Flu Shot
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: octokit/graphql-action@v2.x
+      with:
+        milestone_id: ${{ github.event.inputs.milestone-id }}
+        project_id: ${{ github.event.inputs.project-id }}
+        repository_id: ${{ github.event.repository.node_id }}
+        query: |
+          mutation CreateIssueWithMilestoneAndProject($issue_title: String!, $issue_body: String, $milestone_id: ID, $project_id: ID, $repository_id: ID) {
+            createIssue(input: {title: $issue_title, body: $issue_body, milestoneId: $milestone_id, projectIds: $project_id, repositoryId: $repository_id, labelIds: [], assigneeIds: [] }) {
+              issue {
+                number
+              }
+            }
+          }
+        issue_title: Get Flu Shot
+        issue_body: 
