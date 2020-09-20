@@ -24,3 +24,7 @@ hopefully I'll be reviewing my TODO lists more frequently.
 * GitHub Actions used to automatically to close Issues moved to the `Done` column (and reopen Issues moved out of it).
 
 ![Project Board In-Progress](docs/assets/Project-Board-In-Progress.png)
+
+# How To
+
+* [Get Started](docs/GET-STARTED.md)
