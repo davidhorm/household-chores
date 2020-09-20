@@ -9,7 +9,7 @@ hopefully I'll be reviewing my TODO lists more frequently.
 
 * GitHub Actions used to automatically created GitHub Issues representing chores that need to be completed.
 
-![Issues List](household-chores/raw/main/docs/assets/Issues-List.png)
+![Issues List](docs/assets/Issues-List.png)
 
 * Author a list of chores that need to be created every month, as well as a list of chores for a specific month.
 
@@ -17,10 +17,10 @@ hopefully I'll be reviewing my TODO lists more frequently.
 
 * Issues may be authored using [Markdown Syntax](https://guides.github.com/features/mastering-markdown/) to allow for checkbox, links, etc.
 
-![Issues with Markdown](household-chores/raw/main/docs/assets/Issues-With-Markdown.png)
+![Issues with Markdown](docs/assets/Issues-With-Markdown.png)
 
 * Issues are automatically assigned to a `Chores` project to manage using project boards.
 
 * GitHub Actions used to automatically to close Issues moved to the `Done` column (and reopen Issues moved out of it).
 
-![Project Board In-Progress](household-chores/raw/main/docs/assets/Project-Board-In-Progress.png)
+![Project Board In-Progress](docs/assets/Project-Board-In-Progress.png)
