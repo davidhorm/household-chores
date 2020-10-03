@@ -3,9 +3,10 @@ on:
   # Uncomment `workflow_dispatch` line below to run this workflow manually.
   workflow_dispatch:
 
-  # Uncomment the `schedule` and `cron` lines below to schedule this workflow to execute monthly.
+  # Uncomment the `schedule` and one of the `cron` lines below to schedule this workflow to execute monthly.
   # schedule:
-  # - cron: 1 0 1 * *  # At the first minute of the first day of every month – https://crontab.guru
+    # - cron: 1 0 1 * *  # At the first minute of the first day of every month – https://crontab.guru
+    # - cron: '*/5 * * * *' # every 5 minutes for testing purposes
 
 jobs:
   get-github-ids:
@@ -20,10 +21,11 @@ jobs:
     - id: wf-vars
       name: Set workflow variables
       run: |
-        echo "::set-output name=PROJECT_TITLE::'Chores'"
-        echo "::set-output name=MILESTONE_TITLE::$(date +'%B %Y')"
-        first_of_next_month=$(date --date="$(date +'%Y-%m-01') + 1 month" +%FT%TZ)
-        echo "::set-output name=MILESTONE_DUE_DATE::$first_of_next_month"
+        echo ::set-output name=PROJECT_TITLE::'Chores'
+        echo ::set-output name=MILESTONE_TITLE::$(date +'%B %Y')
+        echo ::set-output name=MILESTONE_DUE_DATE::$(date --date="$(date +'%Y-%m-01') + 1 month" +%FT%TZ)
+        echo ::set-output name=REPOSITORY_OWNER::$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $1}' | sed -e "s/:refs//")
+        echo ::set-output name=REPOSITORY_NAME::$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $2}' | sed -e "s/:refs//")
 
     - id: get-ids
       name: Get ID for- this repo, open Milestone titled "${{ steps.wf-vars.outputs.MILESTONE_TITLE }}", and Project titled ${{ steps.wf-vars.outputs.PROJECT_TITLE }}
@@ -31,13 +33,13 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       uses: octokit/graphql-action@v2.x
       with:
-        owner: ${{ github.event.repository.owner.login }}
-        repo: ${{ github.event.repository.name }}
+        repository_owner: ${{ steps.wf-vars.outputs.REPOSITORY_OWNER }}
+        repository_name: ${{ steps.wf-vars.outputs.REPOSITORY_NAME }}
         milestone_title: ${{ steps.wf-vars.outputs.MILESTONE_TITLE }}
         project_title: ${{ steps.wf-vars.outputs.PROJECT_TITLE }}
         query: |
-          query GetGithubIds($owner: String!, $repo: String!, $milestone_title: String!, $project_title: String!) {
-            repository(owner: $owner, name: $repo) {
+          query GetGithubIds($repository_owner: String!, $repository_name: String!, $milestone_title: String!, $project_title: String!) {
+            repository(owner: $repository_owner, name: $repository_name) {
               milestones(states: OPEN, first: 1, query: $milestone_title) {
                 nodes {
                   id
